@@ -23,9 +23,9 @@ class NeuralNetwork(object):
 			if idx == 0:
 				layer = [StateNeuron() for i in range(neurons_count)]
 			elif idx == len(structure) - 1:
-				layer = [PredictionNeuron(sigmoid, FLAGS.learning_rate, FLAGS.moment) for i in range(neurons_count)]
+				layer = [PredictionNeuron(sigmoid, FLAGS.learning_rate) for i in range(neurons_count)]
 			else:
-				layer = [HiddenNeuron(i, sigmoid, FLAGS.learning_rate, FLAGS.moment) for i in range(neurons_count)]
+				layer = [HiddenNeuron(i, sigmoid, FLAGS.learning_rate) for i in range(neurons_count)]
 
 			self._layers.append(layer)
 
@@ -107,16 +107,14 @@ class StateNeuron(Neuron):
 
 
 class NeuronCore(Neuron):
-	def __init__(self, activation_function, learning_rate, moment):
+	def __init__(self, activation_function, learning_rate):
 		super(NeuronCore, self).__init__()
 
 		self._weights = []
-		self._previous_weight_deltas = []
 		self._error = 0.0
 
 		self._activation_function = activation_function
 		self._learning_rate = learning_rate
-		self._moment = moment
 
 	@property
 	def error(self):
@@ -131,7 +129,6 @@ class NeuronCore(Neuron):
 
 		for i in range(len(input_neurons)):
 			self._weights.append(random())
-			self._previous_weight_deltas.append(0.0)
 
 	def calculate_output(self):
 		weighted_input = 0.0
@@ -145,26 +142,20 @@ class NeuronCore(Neuron):
 
 	def update_weights(self):
 		new_weights = []
-		new_previous_deltas = []
 
 		for idx, weight in enumerate(self._weights):
-			weight_delta = self._learning_rate * \
-				self._input_neurons[idx].output * self._error + \
-				self._previous_weight_deltas[idx] * self._moment
+			weight_delta = self._learning_rate * self._input_neurons[idx].output * self._error
 
-			new_previous_deltas.append(weight_delta)
 			new_weights.append(self._weights[idx] + weight_delta)
 
 		self._weights = new_weights
-		self._previous_weight_deltas = new_previous_deltas
 
 
 class PredictionNeuron(NeuronCore):
-	def __init__(self, activation_function, learning_rate, moment):
+	def __init__(self, activation_function, learning_rate):
 		super(PredictionNeuron, self).__init__(
 			activation_function,
 			learning_rate,
-			moment,
 		)
 
 		self.expected = 0.0
@@ -174,11 +165,10 @@ class PredictionNeuron(NeuronCore):
 
 
 class HiddenNeuron(NeuronCore):
-	def __init__(self, idx_in_layer, activation_function, learning_rate, moment):
+	def __init__(self, idx_in_layer, activation_function, learning_rate):
 		super(HiddenNeuron, self).__init__(
 			activation_function,
 			learning_rate,
-			moment,
 		)
 
 		self._idx = idx_in_layer
@@ -212,7 +202,6 @@ def main(_):
 if __name__ == "__main__":
 	flags.DEFINE_integer("epochs_count", 10000, "Number of epochs.")
 	flags.DEFINE_float("learning_rate", 0.9, "Learning rate.")
-	flags.DEFINE_float("moment", 0.3, "Gradient descent moment.")
 
 	app.run(main)
 
