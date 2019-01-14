@@ -1,16 +1,18 @@
 #!/usr/bin/python
 
 from math import exp
+from random import random
+from absl import app, flags
 
+FLAGS = flags.FLAGS
 
 def sigmoid(weighted_input):
 	return 1.0 / (1.0 + exp(-weighted_input))
 
 
 DERIVATIVES = {
-	sigmoid: lambda weighted_input: weighted_input * (1.0 - weighted_input),
+	sigmoid: lambda output: output * (1.0 - output),
 }
-LEARNING_RATE = 0.9
 
 
 class NeuralNetwork(object):
@@ -21,9 +23,9 @@ class NeuralNetwork(object):
 			if idx == 0:
 				layer = [StateNeuron() for i in range(neurons_count)]
 			elif idx == len(structure) - 1:
-				layer = [PredictionNeuron(sigmoid, LEARNING_RATE) for i in range(neurons_count)]
+				layer = [PredictionNeuron(sigmoid, FLAGS.learning_rate, FLAGS.moment) for i in range(neurons_count)]
 			else:
-				layer = [HiddenNeuron(i, sigmoid, LEARNING_RATE) for i in range(neurons_count)]
+				layer = [HiddenNeuron(i, sigmoid, FLAGS.learning_rate, FLAGS.moment) for i in range(neurons_count)]
 
 			self._layers.append(layer)
 
@@ -105,15 +107,16 @@ class StateNeuron(Neuron):
 
 
 class NeuronCore(Neuron):
-	def __init__(self, activation_function, learning_rate):
+	def __init__(self, activation_function, learning_rate, moment):
 		super(NeuronCore, self).__init__()
 
-		self._weights = None
+		self._weights = []
+		self._previous_weight_deltas = []
 		self._error = 0.0
-		self._weighted_input = 0.0
 
 		self._activation_function = activation_function
 		self._learning_rate = learning_rate
+		self._moment = moment
 
 	@property
 	def error(self):
@@ -126,50 +129,56 @@ class NeuronCore(Neuron):
 	def connect(self, input_neurons, output_neurons):
 		super(NeuronCore, self).connect(input_neurons, output_neurons)
 
-		self._weights = [0.0] * len(input_neurons)
+		for i in range(len(input_neurons)):
+			self._weights.append(random())
+			self._previous_weight_deltas.append(0.0)
 
 	def calculate_output(self):
-		self._weighted_input = 0.0
+		weighted_input = 0.0
 
 		for idx, neuron in enumerate(self._input_neurons):
-			self._weighted_input += neuron.calculate_output() * self._weights[idx]
+			weighted_input += neuron.calculate_output() * self._weights[idx]
 
-		self._output = self._activation_function(self._weighted_input)
+		self._output = self._activation_function(weighted_input)
 
 		return self._output
 
 	def update_weights(self):
-		updated_weights = []
+		new_weights = []
+		new_previous_deltas = []
 
 		for idx, weight in enumerate(self._weights):
-			updated_weights.append(
-				weight + self._learning_rate *
-					self._error *
-					DERIVATIVES[self._activation_function](self._weighted_input) *
-					self._input_neurons[idx].output
-			)
+			weight_delta = self._learning_rate * \
+				self._input_neurons[idx].output * self._error + \
+				self._previous_weight_deltas[idx] * self._moment
 
-		self._weights = updated_weights
+			new_previous_deltas.append(weight_delta)
+			new_weights.append(self._weights[idx] + weight_delta)
+
+		self._weights = new_weights
+		self._previous_weight_deltas = new_previous_deltas
 
 
 class PredictionNeuron(NeuronCore):
-	def __init__(self, activation_function, learning_rate):
+	def __init__(self, activation_function, learning_rate, moment):
 		super(PredictionNeuron, self).__init__(
 			activation_function,
 			learning_rate,
+			moment,
 		)
 
 		self.expected = 0.0
 
 	def calculate_error(self):
-		self._error = self.expected - self._output
+		self._error = (self.expected - self._output) * DERIVATIVES[self._activation_function](self._output)
 
 
 class HiddenNeuron(NeuronCore):
-	def __init__(self, idx_in_layer, activation_function, learning_rate):
+	def __init__(self, idx_in_layer, activation_function, learning_rate, moment):
 		super(HiddenNeuron, self).__init__(
 			activation_function,
 			learning_rate,
+			moment,
 		)
 
 		self._idx = idx_in_layer
@@ -180,74 +189,30 @@ class HiddenNeuron(NeuronCore):
 		for neuron in self._output_neurons:
 			self._error += neuron.error * neuron.weights[self._idx]
 
+		self._error *= DERIVATIVES[self._activation_function](self._output)
 
-if __name__ == "__main__":
+
+def main(_):
 	xor_data_set = (
-		((0, 0), [0.0],),
-		((0, 1), [1.0],),
-		((1, 0), [1.0],),
-		((1, 1), [0.0],),
-		((0, 0), [0.0],),
-		((0, 1), [1.0],),
-		((1, 0), [1.0],),
-		((1, 1), [0.0],),
-		((0, 0), [0.0],),
-		((0, 1), [1.0],),
-		((1, 0), [1.0],),
-		((1, 1), [0.0],),
-		((0, 0), [0.0],),
-		((0, 1), [1.0],),
-		((1, 0), [1.0],),
-		((1, 1), [0.0],),
-		((0, 0), [0.0],),
-		((0, 1), [1.0],),
-		((1, 0), [1.0],),
-		((1, 1), [0.0],),
-		((0, 0), [0.0],),
-		((0, 1), [1.0],),
-		((1, 0), [1.0],),
-		((1, 1), [0.0],),
-		((0, 0), [0.0],),
-		((0, 1), [1.0],),
-		((1, 0), [1.0],),
-		((1, 1), [0.0],),
-		((0, 0), [0.0],),
-		((0, 1), [1.0],),
-		((1, 0), [1.0],),
-		((1, 1), [0.0],),
-		((0, 0), [0.0],),
-		((0, 1), [1.0],),
-		((1, 0), [1.0],),
-		((1, 1), [0.0],),
-		((0, 0), [0.0],),
-		((0, 1), [1.0],),
-		((1, 0), [1.0],),
-		((1, 1), [0.0],),
-		((0, 0), [0.0],),
-		((0, 1), [1.0],),
-		((1, 0), [1.0],),
-		((1, 1), [0.0],),
-		((0, 0), [0.0],),
-		((0, 1), [1.0],),
-		((1, 0), [1.0],),
-		((1, 1), [0.0],),
-		((0, 0), [0.0],),
-		((0, 1), [1.0],),
-		((1, 0), [1.0],),
-		((1, 1), [0.0],),
-		((0, 0), [0.0],),
-		((0, 1), [1.0],),
-		((1, 0), [1.0],),
-		((1, 1), [0.0],),
 		((0, 0), [0.0],),
 		((0, 1), [1.0],),
 		((1, 0), [1.0],),
 		((1, 1), [0.0],),
 	)
 
-	network_structure = [2, 3, 3, 1]
+	network_structure = [2, 4, 4, 1]
 
 	network = NeuralNetwork(network_structure)
 
-	for state, solution in xor_data_set:
-		print(network.learn(state, solution))
+	for i in range(FLAGS.epochs_count):
+		print("=========== Epoch {} ===========".format(i))
+		for state, solution in xor_data_set:
+			print(network.learn(state, solution))
+
+if __name__ == "__main__":
+	flags.DEFINE_integer("epochs_count", 10000, "Number of epochs.")
+	flags.DEFINE_float("learning_rate", 0.9, "Learning rate.")
+	flags.DEFINE_float("moment", 0.3, "Gradient descent moment.")
+
+	app.run(main)
+
