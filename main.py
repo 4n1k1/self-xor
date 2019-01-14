@@ -3,6 +3,8 @@
 from math import exp
 from random import random
 from absl import app, flags
+from time import time
+from tqdm import trange
 
 FLAGS = flags.FLAGS
 
@@ -142,9 +144,10 @@ class NeuronCore(Neuron):
 
 	def update_weights(self):
 		new_weights = []
+		derivative = DERIVATIVES[self._activation_function](self._output)
 
 		for idx, weight in enumerate(self._weights):
-			weight_delta = self._learning_rate * self._input_neurons[idx].output * self._error
+			weight_delta = self._learning_rate * self._input_neurons[idx].output * self._error * derivative
 
 			new_weights.append(self._weights[idx] + weight_delta)
 
@@ -161,7 +164,7 @@ class PredictionNeuron(NeuronCore):
 		self.expected = 0.0
 
 	def calculate_error(self):
-		self._error = (self.expected - self._output) * DERIVATIVES[self._activation_function](self._output)
+		self._error = self.expected - self._output
 
 
 class HiddenNeuron(NeuronCore):
@@ -179,8 +182,6 @@ class HiddenNeuron(NeuronCore):
 		for neuron in self._output_neurons:
 			self._error += neuron.error * neuron.weights[self._idx]
 
-		self._error *= DERIVATIVES[self._activation_function](self._output)
-
 
 def main(_):
 	xor_data_set = (
@@ -190,18 +191,24 @@ def main(_):
 		((1, 1), [0.0],),
 	)
 
-	network_structure = [2, 4, 4, 1]
+	network_structure = [2, 10, 10, 1]
 
 	network = NeuralNetwork(network_structure)
 
-	for i in range(FLAGS.epochs_count):
-		print("=========== Epoch {} ===========".format(i))
+	start_time = time()
+
+	for i in trange(FLAGS.epochs_count):
 		for state, solution in xor_data_set:
-			print(network.learn(state, solution))
+			network.learn(state, solution)
+
+	for state, _ in xor_data_set:
+		print(state, network.predict(state))
+
+	print("Elapsed time: {}".format(time() - start_time))
+
 
 if __name__ == "__main__":
 	flags.DEFINE_integer("epochs_count", 10000, "Number of epochs.")
 	flags.DEFINE_float("learning_rate", 0.9, "Learning rate.")
 
 	app.run(main)
-
