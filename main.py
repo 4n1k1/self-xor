@@ -28,6 +28,7 @@ class NeuralNetwork(object):
 		self._layers = []
 
 		self._visual_file = open("network.visual", "w")
+		self._bias_neuron = BiasNeuron()
 
 		for idx, neurons_count in enumerate(structure):
 			if idx == 0:
@@ -44,9 +45,12 @@ class NeuralNetwork(object):
 				if idx == 0:
 					neuron.connect([], self._layers[idx + 1])
 				elif idx == len(self._layers) - 1:
-					neuron.connect(self._layers[idx - 1], [])
+					neuron.connect(self._layers[idx - 1] + [self._bias_neuron], [])
 				else:
-					neuron.connect(self._layers[idx - 1], self._layers[idx + 1])
+					neuron.connect(self._layers[idx - 1] + [self._bias_neuron], self._layers[idx + 1])
+
+		for layer in self._layers[1:]:
+			self._bias_neuron.connect([], layer)
 
 	def learn(self, state, solution):
 		for idx, value in enumerate(state):
@@ -134,6 +138,13 @@ class StateNeuron(Neuron):
 		self._output = new_output
 
 
+class BiasNeuron(StateNeuron):
+	def __init__(self):
+		super(BiasNeuron, self).__init__()
+
+		self._output = 1.0
+
+
 class NeuronCore(Neuron):
 	def __init__(self, activation_function, learning_rate):
 		super(NeuronCore, self).__init__()
@@ -174,7 +185,7 @@ class NeuronCore(Neuron):
 		for idx, weight in enumerate(self._weights):
 			weight_delta = self._learning_rate * self._input_neurons[idx].output * self._error
 
-			new_weights.append(self._weights[idx] - weight_delta)
+			new_weights.append(self._weights[idx] + weight_delta)
 
 		self._weights = new_weights
 
@@ -186,7 +197,7 @@ class PredictionNeuron(NeuronCore):
 		self.expected = 0.0
 
 	def calculate_error(self):
-		self._error = (self._output - self.expected) * DERIVATIVES[self._activation_function](self._output)
+		self._error = (self.expected - self._output) * DERIVATIVES[self._activation_function](self._output)
 
 
 class HiddenNeuron(NeuronCore):
@@ -206,13 +217,13 @@ class HiddenNeuron(NeuronCore):
 
 def main(_):
 	xor_data_set = (
-		((0, 0, 1), [0.0],),
-		((0, 1, 1), [1.0],),
-		((1, 0, 1), [1.0],),
-		((1, 1, 1), [0.0],),
+		((0, 0), [0.0],),
+		((0, 1), [1.0],),
+		((1, 0), [1.0],),
+		((1, 1), [0.0],),
 	)
 
-	network_structure = [3, 4, 1]
+	network_structure = [2, 4, 1]
 
 	network = NeuralNetwork(network_structure)
 
