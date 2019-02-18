@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 from math import exp, tan, pow
-from random import random, seed
+from random import random
 from time import time, sleep
 
 from absl import app, flags
@@ -12,6 +12,7 @@ FLAGS = flags.FLAGS
 
 def sigmoid(weighted_input):
 	return 1.0 / (1.0 + exp(-weighted_input))
+
 
 def hyper_tang(weighted_input):
 	return (exp(weighted_input) - exp(-weighted_input)) / (exp(weighted_input) + exp(-weighted_input))
