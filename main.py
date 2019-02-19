@@ -168,6 +168,9 @@ class NeuronCore(Neuron):
 		super(NeuronCore, self).connect(input_neurons, output_neurons)
 
 		for i in range(len(input_neurons)):
+			#
+			# These are considered to be the best initialization values.
+			#
 			self._weights.append(2 * random() - 1)
 
 	def calculate_output(self):
