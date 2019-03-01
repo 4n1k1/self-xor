@@ -80,7 +80,8 @@ class NeuralNetwork(object):
 			for neuron in layer:
 				neuron.update_weights()
 
-		# self.write_visual_file()
+		if FLAGS.write_state_file:
+			self.write_visual_file()
 
 		return [neuron.output for neuron in self._layers[-1]]
 
