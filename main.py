@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from math import exp, tan
-from random import random
+from random import uniform
 from time import time, sleep
 
 from absl import app, flags
@@ -29,15 +29,14 @@ class NeuralNetwork:
         self._layers = []
 
         self._visual_file = open("network.visual", "w")
-        self._bias_neuron = BiasNeuron()
 
         for idx, neurons_count in enumerate(structure):
             if idx == 0:
                 layer = [StateNeuron() for _ in range(neurons_count)]
             elif idx == len(structure) - 1:
-                layer = [PredictionNeuron(sigmoid, FLAGS.learning_rate) for _ in range(neurons_count)]
+                layer = [PredictionNeuron(sigmoid) for _ in range(neurons_count)]
             else:
-                layer = [HiddenNeuron(i, sigmoid, FLAGS.learning_rate) for i in range(neurons_count)]
+                layer = [HiddenNeuron(i, sigmoid) for i in range(neurons_count)]
 
             self._layers.append(layer)
 
@@ -46,12 +45,9 @@ class NeuralNetwork:
                 if idx == 0:
                     neuron.connect([], self._layers[idx + 1])
                 elif idx == len(self._layers) - 1:
-                    neuron.connect(self._layers[idx - 1] + [self._bias_neuron], [])
+                    neuron.connect(self._layers[idx - 1], [])
                 else:
-                    neuron.connect(self._layers[idx - 1] + [self._bias_neuron], self._layers[idx + 1])
-
-        for layer in self._layers[1:]:
-            self._bias_neuron.connect([], layer)
+                    neuron.connect(self._layers[idx - 1], self._layers[idx + 1])
 
     def learn(self, state, solution):
         for idx, value in enumerate(state):
@@ -115,7 +111,7 @@ class NeuralNetwork:
 class Neuron:
     def __init__(self):
         self._output = 0.0
-
+        self._bias = uniform(-1.0, 1.0)
         self._output_neurons = None
         self._input_neurons = None
 
@@ -141,22 +137,14 @@ class StateNeuron(Neuron):
         self._output = new_output
 
 
-class BiasNeuron(StateNeuron):
-    def __init__(self):
-        super(BiasNeuron, self).__init__()
-
-        self._output = 1.0
-
-
 class NeuronCore(Neuron):
-    def __init__(self, activation_function, learning_rate):
+    def __init__(self, activation_function):
         super(NeuronCore, self).__init__()
 
         self._weights = []
         self._error = 0.0
 
         self._activation_function = activation_function
-        self._learning_rate = learning_rate
 
     @property
     def error(self):
@@ -173,7 +161,7 @@ class NeuronCore(Neuron):
             #
             # These are considered to be the best initialization values.
             #
-            self._weights.append(2 * random() - 1)
+            self._weights.append(uniform(-1.0, 1.0))
 
     def calculate_output(self):
         weighted_input = 0.0
@@ -181,7 +169,7 @@ class NeuronCore(Neuron):
         for idx, neuron in enumerate(self._input_neurons):
             weighted_input += neuron.calculate_output() * self._weights[idx]
 
-        self._output = self._activation_function(weighted_input)
+        self._output = self._activation_function(weighted_input + self._bias)
 
         return self._output
 
@@ -189,7 +177,7 @@ class NeuronCore(Neuron):
         new_weights = []
 
         for idx, _ in enumerate(self._weights):
-            weight_delta = self._learning_rate * self._input_neurons[idx].output * self._error
+            weight_delta = self._input_neurons[idx].output * self._error
 
             new_weights.append(self._weights[idx] + weight_delta)
 
@@ -197,8 +185,8 @@ class NeuronCore(Neuron):
 
 
 class PredictionNeuron(NeuronCore):
-    def __init__(self, activation_function, learning_rate):
-        super(PredictionNeuron, self).__init__(activation_function, learning_rate)
+    def __init__(self, activation_function):
+        super(PredictionNeuron, self).__init__(activation_function)
 
         self.expected = 0.0
 
@@ -207,8 +195,8 @@ class PredictionNeuron(NeuronCore):
 
 
 class HiddenNeuron(NeuronCore):
-    def __init__(self, idx_in_layer, activation_function, learning_rate):
-        super(HiddenNeuron, self).__init__(activation_function, learning_rate)
+    def __init__(self, idx_in_layer, activation_function):
+        super(HiddenNeuron, self).__init__(activation_function)
 
         self._idx = idx_in_layer
 
@@ -251,6 +239,5 @@ if __name__ == "__main__":
     flags.DEFINE_integer("epochs_count", 10000, "Number of epochs.")
     flags.DEFINE_float("sleep", 0.0, "Sleep time between learn iterations.")
     flags.DEFINE_boolean("write_state_file", False, "Defines whether to write visualization text file.")
-    flags.DEFINE_float("learning_rate", 10.0, "Defines gradient descent step modifier value.")
 
     app.run(main)
